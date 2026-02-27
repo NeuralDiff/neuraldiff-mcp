@@ -1,0 +1,35 @@
+{
+  "name": "neuraldiff-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for NeuralDiff visual regression daemon",
+  "main": "dist/index.js",
+  "bin": {
+    "neuraldiff-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "keywords": [
+    "neuraldiff",
+    "mcp",
+    "visual-regression",
+    "ai",
+    "screenshot"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}
