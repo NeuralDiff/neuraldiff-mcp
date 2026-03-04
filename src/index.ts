@@ -76,16 +76,59 @@ function errorResult(message: string): CallToolResult {
 
 const server = new McpServer({
   name: 'neuraldiff',
-  version: '1.1.0',
+  version: '1.2.0',
 });
+
+// ---------------------------------------------------------------------------
+// Diffy — NeuralDiff's opinionated visual regression agent
+// ---------------------------------------------------------------------------
+
+const DIFFY_VERDICTS = {
+  clean: [
+    'Nothing broken. You may merge.',
+    'Visually identical. Carry on.',
+    'Clean. I checked everything — unlike some tools.',
+    'No regressions. Your UI lives another day.',
+  ],
+  minor: [
+    'Found something. It\'s small, but I don\'t let things slide.',
+    'Minor change detected. Percy would have missed this.',
+    'Subtle shift. Most tools would call this "noise." I call it a finding.',
+  ],
+  moderate: [
+    'This needs attention. Your UI changed in ways you should review.',
+    'Significant visual delta. Don\'t even think about merging without looking.',
+    'I found real changes. The kind that pixel-diffing tools wave through.',
+  ],
+  critical: [
+    'Major regression. This is not a drill.',
+    'Your UI is broken. I caught it in 6ms. You\'re welcome.',
+    'Critical visual failure. The kind Percy charges $149/mo to maybe find.',
+  ],
+  error: [
+    'Something went wrong on my end. Even I\'m not perfect — just close.',
+  ],
+} as const;
+
+function pickVerdict(severity: 'clean' | 'minor' | 'moderate' | 'critical' | 'error'): string {
+  const pool = DIFFY_VERDICTS[severity];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function getSeverityFromSimilarity(similarity: number): 'clean' | 'minor' | 'moderate' | 'critical' {
+  if (similarity >= 0.98) return 'clean';
+  if (similarity >= 0.90) return 'minor';
+  if (similarity >= 0.75) return 'moderate';
+  return 'critical';
+}
 
 // 1. Health check
 server.registerTool(
   'neuraldiff_health',
   {
-    title: 'NeuralDiff Health',
+    title: 'Diffy Health Check',
     description:
-      'Check if the NeuralDiff daemon is running. Returns status, browser connection, and capture count.',
+      'Check if Diffy (the NeuralDiff daemon) is awake and ready. Returns status, browser connection, and capture count.',
     inputSchema: z.object({}),
   },
   async (): Promise<CallToolResult> => {
@@ -99,9 +142,9 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_capture',
   {
-    title: 'Capture Screenshot',
+    title: 'Diffy Capture',
     description:
-      'Capture a screenshot of a URL using the NeuralDiff daemon. Returns capture ID, perceptual hash, dimensions, and file size.',
+      'Have Diffy capture a screenshot of a URL. Returns capture ID, perceptual hash, dimensions, and file size. Diffy remembers everything.',
     inputSchema: z.object({
       id: z.string().describe('Unique identifier for this capture (e.g. "dashboard-desktop")'),
       url: z.string().describe('Full URL to capture (e.g. "http://localhost:3000/dashboard")'),
@@ -141,9 +184,9 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_compare_quick',
   {
-    title: 'Quick Visual Compare',
+    title: 'Diffy Quick Compare',
     description:
-      'Fast perceptual hash comparison between two captures using aHash. Returns similarity score (0-1) and whether full analysis is recommended. Sub-second response.',
+      'Diffy\'s fast perceptual hash comparison (aHash). Returns similarity score (0-1) in under 8ms. If something looks off, Diffy will tell you to escalate.',
     inputSchema: z.object({
       baselineId: z.string().describe('ID of the baseline capture'),
       currentId: z.string().describe('ID of the current capture to compare against baseline'),
@@ -165,9 +208,9 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_compare_robust',
   {
-    title: 'Robust Visual Compare',
+    title: 'Diffy Robust Compare',
     description:
-      'Multi-algorithm perceptual hash comparison (dHash + aHash consensus). More accurate but slower. Returns per-algorithm results and consensus score.',
+      'Diffy\'s thorough multi-algorithm comparison (dHash + aHash consensus). Slower than quick, but Diffy doesn\'t cut corners when it matters.',
     inputSchema: z.object({
       baselineId: z.string().describe('ID of the baseline capture'),
       currentId: z.string().describe('ID of the current capture to compare against baseline'),
@@ -189,9 +232,9 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_list_captures',
   {
-    title: 'List Captures',
+    title: 'Diffy List Captures',
     description:
-      'List all screenshot captures stored in the daemon. Returns capture IDs, routes, viewports, timestamps, and file sizes.',
+      'List everything Diffy has captured. Returns capture IDs, routes, viewports, timestamps, and file sizes.',
     inputSchema: z.object({}),
   },
   async (): Promise<CallToolResult> => {
@@ -205,9 +248,9 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_get_capture',
   {
-    title: 'Get Capture',
+    title: 'Diffy Get Capture',
     description:
-      'Get full metadata for a specific screenshot capture by ID, including perceptual hash, dimensions, viewport, and file paths.',
+      'Get full metadata for a capture by ID — hash, dimensions, viewport, file paths. Diffy keeps meticulous records.',
     inputSchema: z.object({
       id: z.string().describe('The capture ID to retrieve'),
     }),
@@ -223,8 +266,8 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_delete_capture',
   {
-    title: 'Delete Capture',
-    description: 'Delete a screenshot capture and its files from the daemon.',
+    title: 'Diffy Delete Capture',
+    description: 'Delete a capture. Diffy doesn\'t forget — but he can be told to.',
     inputSchema: z.object({
       id: z.string().describe('The capture ID to delete'),
     }),
@@ -242,13 +285,13 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_analyze',
   {
-    title: 'Full Analysis Pipeline',
+    title: 'Diffy Analyze',
     description:
-      'Run a full visual regression analysis. Performs a quick hash comparison first, ' +
-      'then matches results against known regression patterns. If similarity is below ' +
-      'the escalation threshold (default 0.98), automatically escalates to the daemon ' +
-      'for deep pixel-level analysis. Returns quick-compare data, matched patterns, ' +
-      'escalation decision, and (when escalated) deep analysis results.',
+      'Diffy\'s full visual regression analysis. Fast hash check first, pattern matching second, ' +
+      'deep pixel analysis only when warranted. Most checks finish in 6-8ms. ' +
+      'Diffy will tell you exactly what changed and whether you should care. ' +
+      'Returns verdict, quick-compare data, matched patterns, escalation decision, ' +
+      'and (when escalated) deep analysis results.',
     inputSchema: z.object({
       baselineId: z.string().describe('ID of the baseline capture'),
       currentId: z.string().describe('ID of the current capture to compare'),
@@ -306,7 +349,11 @@ server.registerTool(
       // compare + pattern data is valuable on its own.
     }
 
+    const severity = getSeverityFromSimilarity(quickCompare.similarity ?? 1);
+    const verdict = pickVerdict(severity);
+
     const result: AnalysisResult = {
+      diffy: { verdict, severity },
       quickCompare,
       matchedPatterns,
       escalation,
@@ -322,10 +369,9 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_baseline_set',
   {
-    title: 'Set Baseline',
+    title: 'Diffy Set Baseline',
     description:
-      'Designate a capture as the baseline for a given name (typically a route or page). ' +
-      'Future comparisons can reference this baseline by name.',
+      'Lock in a capture as the baseline. Diffy will judge all future captures against it.',
     inputSchema: z.object({
       captureId: z.string().describe('ID of the capture to use as the baseline'),
       name: z
@@ -349,10 +395,9 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_baseline_get',
   {
-    title: 'Get Baseline',
+    title: 'Diffy Get Baseline',
     description:
-      'Retrieve the current baseline capture for a given name. Returns the capture ID, ' +
-      'metadata, and when the baseline was set.',
+      'Retrieve the current baseline for a given name. This is what Diffy compares against.',
     inputSchema: z.object({
       name: z.string().describe('Baseline name to look up'),
     }),
@@ -370,10 +415,10 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_watch_start',
   {
-    title: 'Start Watch',
+    title: 'Diffy Start Watch',
     description:
-      'Start periodically capturing screenshots of a URL and comparing against its ' +
-      'baseline. The daemon will poll at the given interval and flag regressions.',
+      'Put Diffy on patrol. He\'ll periodically capture a URL and compare against its ' +
+      'baseline. If something changes, Diffy will let you know.',
     inputSchema: z.object({
       url: z.string().describe('URL to watch for visual changes'),
       intervalMs: z
@@ -416,8 +461,8 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_watch_stop',
   {
-    title: 'Stop Watch',
-    description: 'Stop a previously started URL watch by its watch ID.',
+    title: 'Diffy Stop Watch',
+    description: 'Call Diffy off patrol for a watched URL.',
     inputSchema: z.object({
       id: z.string().describe('Watch ID to stop'),
     }),
@@ -436,11 +481,10 @@ server.registerTool(
 server.registerTool(
   'neuraldiff_session_context',
   {
-    title: 'Send Session Context',
+    title: 'Diffy Session Context',
     description:
-      'Send developer intent and chat context to the daemon so it (and the upstream API) ' +
-      'can understand *why* visual changes were made. This helps distinguish intentional ' +
-      'redesigns from accidental regressions.',
+      'Tell Diffy what you\'re working on. He\'ll use this context to distinguish intentional ' +
+      'redesigns from accidental regressions. Diffy judges less harshly when he knows the plan.',
     inputSchema: z.object({
       changeIntent: z
         .string()
@@ -490,7 +534,7 @@ server.registerTool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`NeuralDiff MCP server running (daemon: ${DAEMON_URL})`);
+  console.error(`Diffy is awake. NeuralDiff MCP server running (daemon: ${DAEMON_URL})`);
 }
 
 main().catch((err) => {

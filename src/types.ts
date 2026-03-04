@@ -100,8 +100,18 @@ export interface DaemonAnalysisResult {
   [key: string]: unknown;
 }
 
+/** Diffy's verdict on the analysis. */
+export interface DiffyVerdict {
+  /** A human-readable verdict from Diffy. */
+  verdict: string;
+  /** Severity level: clean, minor, moderate, critical. */
+  severity: 'clean' | 'minor' | 'moderate' | 'critical';
+}
+
 /** Combined result returned by the neuraldiff_analyze tool. */
 export interface AnalysisResult {
+  /** Diffy's verdict — the headline you should read first. */
+  diffy: DiffyVerdict;
   /** Quick compare data. */
   quickCompare: QuickCompareResult;
   /** Patterns matched by the MCP layer. */
